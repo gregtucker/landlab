@@ -192,10 +192,10 @@ class SoilGrading(Component):
         self._CV = CV
         self._is_bedrock_distribution_flag = is_bedrock_distribution_flag
         random.seed(seed)
-        
+
         # Get number of classes
         self._get_n_classes(meansizes=meansizes)
-        
+
         # Create a 2D array for meansizes at node
         self._meansizes = self._create_2D_array_for_input_var(meansizes, "meansizes")
 
@@ -209,7 +209,9 @@ class SoilGrading(Component):
         grid.at_node["grains_classes__size"] = np.ones(
             (grid.number_of_nodes, self._n_sizes)
         )
-        self._grid.at_node["grains__weight"] = np.zeros((grid.number_of_nodes, self._n_sizes))
+        self._grid.at_node["grains__weight"] = np.zeros(
+            (grid.number_of_nodes, self._n_sizes)
+        )
         grid.at_node["bed_grains__proportions"] = np.ones(
             (grid.number_of_nodes, self._n_sizes)
         )
@@ -258,8 +260,8 @@ class SoilGrading(Component):
 
         # Store meansizes at grains_classes__size field and verify
         # that the number of classes match the number of classes at the grain__weight field
-        if np.ndim(self._grid.at_node["grains_classes__size"])==1:
-            self._grid.at_node["grains_classes__size"] *= self._meansizes[:,0]
+        if np.ndim(self._grid.at_node["grains_classes__size"]) == 1:
+            self._grid.at_node["grains_classes__size"] *= self._meansizes[:, 0]
         else:
             self._grid.at_node["grains_classes__size"] *= self._meansizes
         self._check_match_weights_n_classes()
@@ -479,7 +481,7 @@ class SoilGrading(Component):
         """
 
         self.g_state0 = grains_weight__distribution
-        if np.ndim(self._grid.at_node["grains__weight"])>1:
+        if np.ndim(self._grid.at_node["grains__weight"]) > 1:
             self._grid.at_node["grains__weight"][self._grid.core_nodes, :] = (
                 grains_weight__distribution[self._grid.core_nodes, :]
             )
@@ -491,8 +493,9 @@ class SoilGrading(Component):
             self._grid.at_node["grains__weight"][self._grid.core_nodes] = (
                 grains_weight__distribution[self._grid.core_nodes, 0]
             )
-            layer_depth = (self._grid.at_node["grains__weight"][self._grid.core_nodes] 
-                           / (self._soil_density * (1 - self._phi)))
+            layer_depth = self._grid.at_node["grains__weight"][
+                self._grid.core_nodes
+            ] / (self._soil_density * (1 - self._phi))
 
         self._grid.at_node["soil__depth"][self._grid.core_nodes] += layer_depth
         self._grid.at_node["topographic__elevation"] = (
@@ -552,12 +555,12 @@ class SoilGrading(Component):
         The median grain size at each node is defined as the size of the class closest
         to the median based on the weight in each size class
         """
-        if np.ndim(self._grid.at_node["grains__weight"])>1:
+        if np.ndim(self._grid.at_node["grains__weight"]) > 1:
             cumsum_gs = np.cumsum(self._grid.at_node["grains__weight"], axis=1)
             sum_gs = np.sum(self._grid.at_node["grains__weight"], axis=1)
             self._grid.at_node["median_size__weight"][sum_gs <= 0] = 0
             sum_gs_exp = np.expand_dims(sum_gs, -1)
-    
+
             fraction_from_total = np.divide(
                 cumsum_gs,
                 sum_gs_exp,
@@ -569,15 +572,17 @@ class SoilGrading(Component):
                 fraction_from_total - 0.5,
                 axis=1,
             )
-    
+
             self._grid.at_node["median_size__weight"][self._grid.core_nodes] = (
                 self._meansizes[
                     self._grid.core_nodes, median_val_indx[self._grid.core_nodes]
                 ]
             )
         else:
-            self._grid.at_node["median_size__weight"][self._grid.core_nodes]= self._meansizes[self._grid.core_nodes,0]
-            
+            self._grid.at_node["median_size__weight"][self._grid.core_nodes] = (
+                self._meansizes[self._grid.core_nodes, 0]
+            )
+
     def run_one_step(self, A_factor=None):
         """
         The run_one_step procedure transform mass from parent grain size classes to
@@ -601,14 +606,16 @@ class SoilGrading(Component):
             0,
             -1,
         )
-        
-        if self._n_sizes==1:
-            self._grid.at_node["grains__weight"] = np.reshape(temp_g_weight, 
-                                                              (self._grid.shape[0] * 
-                                                               self._grid.shape[1], self._n_sizes))[:,0]
+
+        if self._n_sizes == 1:
+            self._grid.at_node["grains__weight"] = np.reshape(
+                temp_g_weight,
+                (self._grid.shape[0] * self._grid.shape[1], self._n_sizes),
+            )[:, 0]
         else:
             self._grid.at_node["grains__weight"] += np.reshape(
-                temp_g_weight, (self._grid.shape[0] * self._grid.shape[1], self._n_sizes)
+                temp_g_weight,
+                (self._grid.shape[0] * self._grid.shape[1], self._n_sizes),
             )
         self.update_median_grain_size()
 
@@ -657,12 +664,12 @@ class SoilGrading(Component):
             )
 
         try:
-            if np.ndim(self._grid.at_node["bed_grains__proportions"])==1:
-                self._grid.at_node["bed_grains__proportions"][:] = proportions[:,0]
+            if np.ndim(self._grid.at_node["bed_grains__proportions"]) == 1:
+                self._grid.at_node["bed_grains__proportions"][:] = proportions[:, 0]
             else:
                 self._grid.at_node["bed_grains__proportions"][:] = proportions
 
-        except:
+        except ValueError:
             raise ValueError(
                 "Proportions array must be in shape of n_nodes x n_classes"
             )
@@ -672,8 +679,8 @@ class SoilGrading(Component):
         This procedure verifies that the number of classes in grains__weight
         field and in grains_classes__size, match each other.
         """
-        if np.ndim(self._grid.at_node["grains__weight"])==1:
-            if np.ndim(self._grid.at_node["grains_classes__size"])!=1:
+        if np.ndim(self._grid.at_node["grains__weight"]) == 1:
+            if np.ndim(self._grid.at_node["grains_classes__size"]) != 1:
                 raise ValueError(
                     "Grain weights provided do not match the number of classes"
                 )
@@ -698,7 +705,7 @@ class SoilGrading(Component):
                 "For setting initial spatial-diffrences in median grain size, \n"
                 "grains_weight input parameter should be changed"
             )
-        
+
     def _get_n_classes(self, meansizes):
         if np.ndim(meansizes) == 2:
             self._n_sizes = np.shape(input_var_array)[1]
@@ -707,7 +714,4 @@ class SoilGrading(Component):
         elif np.ndim(meansizes) <= 1:
             self._n_sizes = np.shape(meansizes)[0]
         else:
-            raise ValueError(f"meansizes format is invalid")
-
-
-        
+            raise ValueError("meansizes format is invalid")
